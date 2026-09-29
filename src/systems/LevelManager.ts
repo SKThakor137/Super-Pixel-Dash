@@ -146,7 +146,8 @@ export class LevelManager {
     this.createCrawler(2650, 460, 180); // Crawler 1
     this.createCoinLine(2560, 440, 4, 30);
 
-    // High platform above crawler
+    // Stepping stones and high platform above crawler
+    this.createBridge(2510, 420, 2); // stepping ledge
     this.createPlatform(2600, 360, 4);
     this.createStar(2660, 310); // STAR 3!
 
@@ -160,6 +161,7 @@ export class LevelManager {
     this.createCoinLine(3110, 395, 4, 28);
 
     this.createGround(3260, 480, 10, 7);
+    this.createBridge(3270, 420, 2); // stepping ledge
     this.createPlatform(3340, 370, 4);
     this.createStar(3400, 315); // STAR 4!
     this.addDeco(3280, 480, 'bush', 1);

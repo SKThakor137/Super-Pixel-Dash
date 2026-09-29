@@ -13,6 +13,7 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
 
   // Jump feel helpers
   private coyoteTimer: number = 0;
+  private jumpsRemaining: number = GAME_CONFIG.PLAYER.MAX_JUMPS;
   private isGrounded: boolean = false;
   private wasGrounded: boolean = false;
   private isInvulnerable: boolean = false;
@@ -50,9 +51,10 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     this.wasGrounded = this.isGrounded;
     this.isGrounded = this.body.blocked.down || this.body.touching.down;
 
-    // Coyote time tracking
+    // Coyote time and jump reset
     if (this.isGrounded) {
       this.coyoteTimer = GAME_CONFIG.PLAYER.COYOTE_TIME_MS;
+      this.jumpsRemaining = GAME_CONFIG.PLAYER.MAX_JUMPS;
       if (!this.wasGrounded) {
         // Just landed!
         this.onLand();
@@ -67,9 +69,9 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     // Vertical Movement & Jump
     this.handleJump();
 
-    // Variable jump height (cut jump short if player releases button early)
-    if (!this.inputManager.isJumpHeld && this.body.velocity.y < -150) {
-      this.body.setVelocityY(this.body.velocity.y * 0.55);
+    // Variable jump height (cut jump short smoothly if player releases button early)
+    if (!this.inputManager.isJumpHeld && this.body.velocity.y < -200) {
+      this.body.setVelocityY(this.body.velocity.y * 0.72);
     }
 
     // Update animations based on state
@@ -100,13 +102,14 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
   }
 
   private handleJump(): void {
-    const canJump = this.coyoteTimer > 0;
     const wantsJump = this.inputManager.isJumpBuffered;
+    if (!wantsJump) return;
 
-    if (canJump && wantsJump) {
-      // Execute jump!
+    if (this.coyoteTimer > 0) {
+      // Primary Ground / Coyote Jump (high and crisp)
       this.body.setVelocityY(GAME_CONFIG.PLAYER.JUMP_VELOCITY);
       this.coyoteTimer = 0;
+      this.jumpsRemaining = GAME_CONFIG.PLAYER.MAX_JUMPS - 1;
       this.inputManager.consumeJumpBuffer();
       this.soundManager.playJump();
 
@@ -115,7 +118,30 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
 
       // Create dust puff particles
       this.emitDust();
+    } else if (this.jumpsRemaining > 0) {
+      // Mid-Air Double Jump (acrobatic boost to climb high walls/platforms)
+      this.body.setVelocityY(GAME_CONFIG.PLAYER.JUMP_VELOCITY * 0.92);
+      this.jumpsRemaining--;
+      this.inputManager.consumeJumpBuffer();
+      this.soundManager.playJump();
+
+      this.triggerSquashStretch(0.8, 1.2, 100);
+      this.emitAirRing();
     }
+  }
+
+  private emitAirRing(): void {
+    const ring = this.scene.add.circle(this.x, this.y + 10, 8, 0x38bdf8, 0.85);
+    ring.setStrokeStyle(2, 0xffffff, 0.9);
+    this.scene.tweens.add({
+      targets: ring,
+      scaleX: 2.4,
+      scaleY: 0.6,
+      alpha: 0,
+      duration: 250,
+      ease: 'Quad.easeOut',
+      onComplete: () => ring.destroy(),
+    });
   }
 
   private onLand(): void {
@@ -185,6 +211,7 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
 
   public bounce(velocity: number = GAME_CONFIG.PLAYER.BOUNCE_ON_ENEMY): void {
     this.body.setVelocityY(velocity);
+    this.jumpsRemaining = GAME_CONFIG.PLAYER.MAX_JUMPS;
     this.soundManager.playStomp();
     this.triggerSquashStretch(0.8, 1.25, 120);
   }
